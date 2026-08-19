@@ -15,13 +15,13 @@ public interface ProductService {
 
     ProductEntity insertProductEntity(ProductEntity productEntity);
 
-    boolean insertProductEntityCSV(List<ProductEntity> productEntities);
+    boolean insertProductEntitiesExcel(List<ProductEntity> productEntities);
 
-    boolean updateProductEntityCSV(List<ProductEntity> productEntities);
+    boolean updateProductEntitiesExcel(List<ProductEntity> productEntities);
 
-    void insertProductsFromCsv(MultipartFile file);
+    void insertProductsFromExcel(MultipartFile file);
 
-    void updateProductsFromCsv(MultipartFile file);
+    void updateProductsFromExcel(MultipartFile file);
 
     List<ProductDefaultDto> getAllActiveProducts();
 

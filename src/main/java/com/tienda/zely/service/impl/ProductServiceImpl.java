@@ -1,6 +1,5 @@
 package com.tienda.zely.service.impl;
 
-import static com.tienda.zely.util.Constants.SEPARATOR;
 import static com.tienda.zely.util.Constants.TIME_ZONE;
 
 import com.tienda.zely.dto.product.ProductDefaultDto;
@@ -14,9 +13,7 @@ import com.tienda.zely.exception.ResourceNotFoundException;
 import com.tienda.zely.mapper.ProductMapper;
 import com.tienda.zely.repository.ProductRepository;
 import com.tienda.zely.service.ProductService;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import com.tienda.zely.util.ProductExcelHandler;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -70,16 +67,16 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public boolean insertProductEntityCSV(List<ProductEntity> productEntities) {
-        log.info("ProductServiceImpl.insertProductEntityCSV");
+    public boolean insertProductEntitiesExcel(List<ProductEntity> productEntities) {
+        log.info("ProductServiceImpl.insertProductEntitiesExcel");
         productRepository.saveAll(productEntities);
         return true;
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
     @Override
-    public boolean updateProductEntityCSV(List<ProductEntity> productEntities) {
-        log.info("ProductServiceImpl.updateProductEntityCSV");
+    public boolean updateProductEntitiesExcel(List<ProductEntity> productEntities) {
+        log.info("ProductServiceImpl.updateProductEntitiesExcel");
         for (ProductEntity product : productEntities) {
             productRepository.updateProductEntityByName(
                     product.getPrice(), product.getTypeProductEntity().getIdTypeProduct(),
@@ -90,22 +87,22 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public void insertProductsFromCsv(MultipartFile file) {
-        log.info("Importando productos desde CSV");
-        List<ProductRequestDto> products = parseProductsFromCsv(file, true);
-        validateInsertProductsFromCsv(products);
+    public void insertProductsFromExcel(MultipartFile file) {
+        log.info("Importando productos desde Excel");
+        List<ProductRequestDto> products = parseProductsFromExcel(file, true);
+        validateInsertProductsFromExcel(products);
         LocalDateTime now = LocalDateTime.now(ZoneId.of(TIME_ZONE));
-        insertProductEntityCSV(productMapper.mapListProductRequestDtoToProductEntity(products, now));
+        insertProductEntitiesExcel(productMapper.mapListProductRequestDtoToProductEntity(products, now));
     }
 
     @Override
     @Transactional
-    public void updateProductsFromCsv(MultipartFile file) {
-        log.info("Actualizando productos desde CSV");
-        List<ProductRequestDto> products = parseProductsFromCsv(file, false);
-        validateUpdateProductsFromCsv(products);
+    public void updateProductsFromExcel(MultipartFile file) {
+        log.info("Actualizando productos desde Excel");
+        List<ProductRequestDto> products = parseProductsFromExcel(file, false);
+        validateUpdateProductsFromExcel(products);
         LocalDateTime now = LocalDateTime.now(ZoneId.of(TIME_ZONE));
-        updateProductEntityCSV(productMapper.mapListProductRequestDtoToProductEntity(products, now));
+        updateProductEntitiesExcel(productMapper.mapListProductRequestDtoToProductEntity(products, now));
     }
 
     @Override
@@ -212,7 +209,7 @@ public class ProductServiceImpl implements ProductService {
         return product;
     }
 
-    private void validateInsertProductsFromCsv(List<ProductRequestDto> products) {
+    private void validateInsertProductsFromExcel(List<ProductRequestDto> products) {
         List<String> errors = new ArrayList<>();
         Set<String> namesInFile = new HashSet<>();
 
@@ -243,7 +240,7 @@ public class ProductServiceImpl implements ProductService {
         }
     }
 
-    private void validateUpdateProductsFromCsv(List<ProductRequestDto> products) {
+    private void validateUpdateProductsFromExcel(List<ProductRequestDto> products) {
         List<String> errors = new ArrayList<>();
         Set<Integer> idsInFile = new HashSet<>();
 
@@ -267,55 +264,42 @@ public class ProductServiceImpl implements ProductService {
         }
     }
 
-    private List<ProductRequestDto> parseProductsFromCsv(MultipartFile file, boolean isInsert) {
-        if (file == null || file.isEmpty()) {
-            throw new ConflictException("El archivo CSV esta vacio o no fue enviado");
-        }
-
+    private List<ProductRequestDto> parseProductsFromExcel(MultipartFile file, boolean isInsert) {
         List<ProductRequestDto> result = new ArrayList<>();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
-            String line = reader.readLine();
-            int row = 0;
-            while (line != null) {
-                if (row > 0) {
-                    String[] fields = line.split(SEPARATOR);
-                    result.add(mapCsvRowToProductRequestDto(fields, isInsert));
-                }
-                line = reader.readLine();
-                row++;
-            }
-        } catch (IOException e) {
-            log.error("Error al leer archivo CSV de productos", e);
-            throw new ConflictException("No se pudo procesar el archivo CSV");
-        }
+        List<String[]> rows = ProductExcelHandler.readDataRows(file);
 
-        if (result.isEmpty()) {
-            throw new ConflictException("El archivo CSV no contiene productos para procesar");
+        for (int i = 0; i < rows.size(); i++) {
+            result.add(mapExcelRowToProductRequestDto(rows.get(i), isInsert, i + 2));
         }
         return result;
     }
 
-    private ProductRequestDto mapCsvRowToProductRequestDto(String[] fields, boolean isInsert) {
-        if (isInsert) {
-            validateColumnCount(fields, 3, "insert");
-            return new ProductRequestDto(
-                    fields[0].trim().toUpperCase(),
-                    parsePositiveInt(fields[1], "codigoTipoProducto"),
-                    parsePositiveDouble(fields[2], "precio"));
+    private ProductRequestDto mapExcelRowToProductRequestDto(String[] fields, boolean isInsert, int rowNumber) {
+        try {
+            if (isInsert) {
+                validateColumnCount(fields, 3, "insert");
+                return new ProductRequestDto(
+                        fields[0].trim().toUpperCase(),
+                        parsePositiveInt(fields[1], "codigoTipoProducto"),
+                        parsePositiveDouble(fields[2], "precio"));
+            }
+            validateColumnCount(fields, 4, "update");
+            ProductRequestDto dto = new ProductRequestDto(
+                    fields[1].trim().toUpperCase(),
+                    parsePositiveInt(fields[2], "codigoTipoProducto"),
+                    parsePositiveDouble(fields[3], "precio"));
+            dto.setCodigoProducto(parsePositiveInt(fields[0], "codigoProducto"));
+            return dto;
+        } catch (ConflictException ex) {
+            throw new ConflictException("Fila " + rowNumber + ": " + ex.getMessage());
         }
-        validateColumnCount(fields, 4, "update");
-        ProductRequestDto dto = new ProductRequestDto(
-                fields[1].trim().toUpperCase(),
-                parsePositiveInt(fields[2], "codigoTipoProducto"),
-                parsePositiveDouble(fields[3], "precio"));
-        dto.setCodigoProducto(parsePositiveInt(fields[0], "codigoProducto"));
-        return dto;
     }
 
     private void validateColumnCount(String[] fields, int expected, String operation) {
         if (fields.length < expected) {
             throw new ConflictException(
-                    "Fila CSV invalida para " + operation + ": se esperaban " + expected + " columnas, se encontraron " + fields.length);
+                    "fila invalida para " + operation + ": se esperaban " + expected
+                            + " columnas, se encontraron " + fields.length);
         }
     }
 

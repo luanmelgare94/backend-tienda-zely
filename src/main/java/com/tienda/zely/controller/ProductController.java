@@ -1,7 +1,7 @@
 package com.tienda.zely.controller;
 
-import static com.tienda.zely.util.Constants.APPLICATION_CSV_VALUE;
 import static com.tienda.zely.util.Constants.APPLICATION_JSON_UTF8_VALUE;
+import static com.tienda.zely.util.Constants.APPLICATION_XLSX_VALUE;
 
 import com.tienda.zely.dto.product.ProductDefaultDto;
 import com.tienda.zely.dto.product.ProductRegisterResult;
@@ -9,7 +9,7 @@ import com.tienda.zely.dto.product.ProductRequestDto;
 import com.tienda.zely.dto.product.ProductResponseDto;
 import com.tienda.zely.dto.product.ProductUpdateDto;
 import com.tienda.zely.service.ProductService;
-import com.tienda.zely.util.WriteCsvToResponse;
+import com.tienda.zely.util.ProductExcelHandler;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -52,13 +52,12 @@ public class ProductController {
         return ResponseEntity.ok(productService.getAllInactiveProducts());
     }
 
-    @GetMapping(path = "/downloadCSV", produces = APPLICATION_CSV_VALUE)
-    public void findProducts(HttpServletResponse response) throws IOException {
-        log.info("Exportando productos activos a CSV");
-        response.setContentType("text/csv");
-        response.setHeader("Content-Disposition", "attachment; file=customers.csv");
-        WriteCsvToResponse.writeDataToCsvWithListObjects(
-                response.getWriter(), productService.getAllActiveProductsForExport());
+    @GetMapping(path = "/downloadExcel", produces = APPLICATION_XLSX_VALUE)
+    public void downloadProductsExcel(HttpServletResponse response) throws IOException {
+        log.info("Exportando productos activos a Excel");
+        response.setContentType(APPLICATION_XLSX_VALUE);
+        response.setHeader("Content-Disposition", "attachment; filename=productos.xlsx");
+        ProductExcelHandler.writeProducts(response.getOutputStream(), productService.getAllActiveProductsForExport());
     }
 
     @PostMapping(path = "/insert", produces = APPLICATION_JSON_UTF8_VALUE)
@@ -72,10 +71,10 @@ public class ProductController {
         };
     }
 
-    @PostMapping(path = "/insertCSV")
-    public ResponseEntity<Void> insertProductsByFileCSV(@RequestParam("file") MultipartFile file) {
-        log.info("Importando productos desde CSV");
-        productService.insertProductsFromCsv(file);
+    @PostMapping(path = "/insertExcel")
+    public ResponseEntity<Void> insertProductsByExcel(@RequestParam("file") MultipartFile file) {
+        log.info("Importando productos desde Excel");
+        productService.insertProductsFromExcel(file);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -100,10 +99,10 @@ public class ProductController {
         return ResponseEntity.status(HttpStatus.NOT_MODIFIED).build();
     }
 
-    @PutMapping(path = "/updateCSV")
-    public ResponseEntity<Void> updateProductsByFileCSV(@RequestParam("file") MultipartFile file) {
-        log.info("Actualizando productos desde CSV");
-        productService.updateProductsFromCsv(file);
+    @PutMapping(path = "/updateExcel")
+    public ResponseEntity<Void> updateProductsByExcel(@RequestParam("file") MultipartFile file) {
+        log.info("Actualizando productos desde Excel");
+        productService.updateProductsFromExcel(file);
         return ResponseEntity.ok().build();
     }
 

@@ -11,7 +11,7 @@ API REST para la gestión de una tienda: productos, clientes, ventas, números d
 | PostgreSQL | Base de datos |
 | MapStruct | Mapeo DTO ↔ entidad |
 | Lombok | Reducción de boilerplate |
-| OpenCSV | Importación y exportación CSV |
+| Apache POI | Importación y exportación Excel (.xlsx) |
 | Jakarta Validation | Validación de requests |
 
 ## Requisitos
@@ -74,7 +74,7 @@ src/main/java/com/tienda/zely/
 ├── repository/      # Repositorios Spring Data
 ├── service/         # Lógica de negocio
 │   └── impl/
-└── util/            # Constantes y utilidades (CSV, etc.)
+└── util/            # Constantes y utilidades (Excel, etc.)
 ```
 
 ## Módulos y endpoints
@@ -85,18 +85,18 @@ src/main/java/com/tienda/zely/
 |--------|------|-------------|
 | GET | `/active` | Lista productos activos |
 | GET | `/desactive` | Lista productos inactivos |
-| GET | `/downloadCSV` | Exporta productos activos a CSV |
+| GET | `/downloadExcel` | Exporta productos activos a Excel (.xlsx) |
 | POST | `/insert` | Registra un producto |
-| POST | `/insertCSV` | Registro masivo desde CSV |
+| POST | `/insertExcel` | Registro masivo desde Excel (.xlsx) |
 | PUT | `/update?codigoProducto=` | Actualiza un producto |
-| PUT | `/updateCSV` | Actualización masiva desde CSV |
+| PUT | `/updateExcel` | Actualización masiva desde Excel (.xlsx) |
 | PUT | `/active?codigoProducto=` | Reactiva un producto |
 | DELETE | `/inactive/{id}` | Desactiva un producto |
 
-**Formato CSV (separador `|`):**
+**Formato Excel (.xlsx), primera fila = encabezados:**
 
-- Insert: `nombre|codigoTipoProducto|precio`
-- Update: `codigoProducto|nombre|codigoTipoProducto|precio`
+- Insert: columnas `nombre`, `codigoTipoProducto`, `precio`
+- Update: columnas `codigoProducto`, `nombre`, `codigoTipoProducto`, `precio`
 
 Antes de persistir, el insert masivo valida duplicados y productos inactivos; el update masivo valida que cada ID exista.
 
@@ -151,7 +151,7 @@ Estadísticas y resumen para el panel principal.
 | Excepción | HTTP | Uso |
 |-----------|------|-----|
 | `ResourceNotFoundException` | 404 | Recurso no encontrado |
-| `ConflictException` | 409 | Reglas de negocio (CSV inválido, duplicados, etc.) |
+| `ConflictException` | 409 | Reglas de negocio (Excel inválido, duplicados, etc.) |
 | `MethodArgumentNotValidException` | 400 | Validación de body |
 | `ConstraintViolationException` | 400 | Validación de parámetros |
 
@@ -162,7 +162,7 @@ Formato de respuesta de error:
   "status": 409,
   "error": "Conflict",
   "message": "Fila 3: el producto 'LAPTOP' ya existe y esta activo",
-  "path": "/product/insertCSV",
+  "path": "/product/insertExcel",
   "timestamp": "2026-08-17T12:00:00"
 }
 ```
